@@ -26,6 +26,7 @@ Secrets tối thiểu cần set:
 
 - `TS_AUTHKEY`
 - `TS_TAILNET`
+- `CONSUL_HTTP_ADDR` khi chạy multi-host thật với `consul_mode=external`
 - `NEXT_PUBLIC_BASE_URL`
 - `JWT_SECRET`
 - `API_KEY_SECRET`
@@ -37,8 +38,9 @@ Cách chạy:
 
 1. Vào **Actions** -> `deploy-litefs`.
 2. Chọn `node_slot` (1/2/3...) để workflow tự đặt hostname Tailscale ổn định.
-3. Chọn `skip_cloudflared=true` cho lần chạy kiểm tra nội bộ trước.
-4. Run workflow và xem bước `Wait for health` + `Smoke test`.
+3. Chọn `consul_mode=external` cho multi-host thật, hoặc `consul_mode=local` nếu chỉ smoke test 1 node.
+4. Chọn `skip_cloudflared=true` cho lần chạy kiểm tra nội bộ trước.
+5. Run workflow và xem bước `Wait for health` + `Smoke test`.
 
 ---
 
@@ -50,9 +52,11 @@ Nếu bạn muốn chạy nội bộ/VPN trước, có thể **không bật clou
 Cần cấu hình:
 
 1. `.env` đầy đủ secrets app + identity (`INSTANCE_NAME`, `INSTANCE_ADDR`).
-2. `CONSUL_HTTP_ADDR` nếu bạn muốn override; mặc định repo dùng `http://consul:8500`.
-3. Mở cổng truy cập nội bộ tới LiteFS proxy (`20128`) trên host chạy app.
-4. Dùng URL nội bộ để test, ví dụ:
+2. `CONSUL_HTTP_ADDR`.
+3. Với multi-host thật, trỏ `CONSUL_HTTP_ADDR` tới một cụm Consul dùng chung.
+4. Với local/single-node, có thể dùng mặc định `http://consul:8500`.
+5. Mở cổng truy cập nội bộ tới LiteFS proxy (`20128`) trên host chạy app.
+6. Dùng URL nội bộ để test, ví dụ:
    - `http://<node-or-lb-internal>:20128/api/storage/health`
    - `http://<node-or-lb-internal>:20128/v1/models`
 
@@ -90,16 +94,16 @@ Nếu node IP động:
 
 ```bash
 export INSTANCE_ADDR="$(bash ./scripts/resolve-instance-addr.sh)"
-export CONSUL_HTTP_ADDR="http://consul:8500"
+export CONSUL_HTTP_ADDR="http://consul:8500" # hoặc endpoint Consul shared nếu multi-host
 ```
 
 ### PASS
 - `.env` tồn tại và có đủ secret bắt buộc.
 - `INSTANCE_ADDR` resolve được.
-- `CONSUL_HTTP_ADDR` trỏ tới Consul local đang có leader.
+- `CONSUL_HTTP_ADDR` trỏ tới đúng cụm Consul và endpoint đó đang có leader.
 
 ### FAIL
-- Consul local chưa lên hoặc chưa có leader.
+- `CONSUL_HTTP_ADDR` trỏ sai cụm hoặc endpoint chưa có leader.
 
 ---
 
@@ -121,9 +125,16 @@ test -e /dev/fuse && echo "fuse ok"
 
 ## 2.1 Start Consul
 
+Single-node/local:
+
 ```bash
 docker compose up -d consul
 ```
+
+Multi-host/shared Consul:
+
+- Không boot local `consul` trên từng node nếu bạn đang dùng một cụm Consul dùng chung.
+- Chỉ cần đảm bảo `CONSUL_HTTP_ADDR` trỏ tới cụm shared đó.
 
 Kiểm tra:
 
@@ -215,6 +226,12 @@ curl -fsS http://localhost:20128/v1/models >/dev/null
 
 ### FAIL
 - Node 2 không đọc được hoặc mất đồng bộ liên tục.
+
+## 4.1 Cảnh báo split-brain quan trọng
+
+- Nếu mỗi node tự chạy `consul agent -server -bootstrap-expect=1` riêng của nó, bạn sẽ có nhiều cụm Consul độc lập.
+- Khi đó LiteFS trên mỗi node có thể đều tự nhận primary vì chúng không dùng chung lease backend.
+- Multi-host thật nên dùng `consul_mode=external` trong workflow và trỏ mọi node về cùng một `CONSUL_HTTP_ADDR`.
 
 ---
 

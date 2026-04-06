@@ -50,7 +50,7 @@ Cloudflare Tunnel
 - `scripts/litefs-smoke.sh`: smoke test nhanh.
 - `scripts/litefs-soak.sh`: soak test dài.
 - `scripts/resolve-instance-addr.sh`: resolve `INSTANCE_ADDR` khi dùng Tailscale/IP động.
-- `scripts/resolve-consul-addr.sh`: helper kiểm tra `CONSUL_HTTP_ADDR`/Consul local trước khi app lấy lease.
+- `scripts/resolve-consul-addr.sh`: helper kiểm tra `CONSUL_HTTP_ADDR` hoặc local Consul trước khi app lấy lease.
 
 ---
 
@@ -87,7 +87,7 @@ Thiết lập nhanh:
 
 ```bash
 export INSTANCE_ADDR="$(bash ./scripts/resolve-instance-addr.sh)"
-export CONSUL_HTTP_ADDR="http://consul:8500"
+export CONSUL_HTTP_ADDR="http://consul:8500" # hoặc endpoint shared nếu multi-host
 ```
 
 Xem hướng dẫn chi tiết tại `docs/TAISCALE_LITEFS.md`.
@@ -98,6 +98,11 @@ Xem hướng dẫn chi tiết tại `docs/TAISCALE_LITEFS.md`.
 docker compose up -d consul
 docker compose up -d --build omniroute-litefs
 ```
+
+Với multi-host thật:
+
+- Không nên để từng node tự bootstrap một Consul single-node riêng.
+- Hãy trỏ tất cả node về cùng một `CONSUL_HTTP_ADDR` của cụm Consul shared, rồi chỉ boot `omniroute-litefs` trên từng node.
 
 Kiểm tra nhanh:
 
@@ -121,7 +126,7 @@ bash ./scripts/migrate-from-litestream.sh ./data/storage.sqlite ./bootstrap/stor
 
 ## 3.4 Join node thứ 2
 
-- Trên node 2, giữ cùng cách trỏ Consul; mặc định là `CONSUL_HTTP_ADDR=http://consul:8500` nếu app dùng local compose service.
+- Trên node 2, trỏ cùng một `CONSUL_HTTP_ADDR` như node 1.
 - Set khác `INSTANCE_NAME`, `INSTANCE_ADDR`.
 - Start `omniroute-litefs` như node 1.
 
@@ -212,6 +217,11 @@ Output:
 - Có split-brain.
 - FUSE không ổn định trên môi trường deploy.
 - Traffic public không phục hồi sau failover.
+
+### Cảnh báo hiện trạng
+
+- Multi-host sẽ không an toàn nếu mỗi node dùng một local Consul `bootstrap-expect=1` riêng.
+- Muốn có đúng một LiteFS primary trong toàn cụm, mọi node phải dùng chung một Consul backend.
 
 
 ## 7) Triển khai private trước (không cloudflared)

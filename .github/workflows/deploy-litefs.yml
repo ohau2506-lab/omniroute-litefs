@@ -7,6 +7,14 @@ on:
         description: "Node slot cố định cho hostname tailscale (vd: 1,2,3)"
         required: true
         default: "1"
+      consul_mode:
+        description: "Dùng Consul local cho test 1 node hay Consul external dùng chung cho multi-host"
+        required: true
+        default: "external"
+        type: choice
+        options:
+          - "external"
+          - "local"
       skip_cloudflared:
         description: "Bỏ qua bật cloudflared"
         required: true
@@ -24,6 +32,7 @@ jobs:
     env:
       TS_NODE_NAME: omniroute-node-${{ github.event.inputs.node_slot }}
       TAILSCALE_TAILNET: ${{ secrets.TS_TAILNET }}
+      CONSUL_HTTP_ADDR_SECRET: ${{ secrets.CONSUL_HTTP_ADDR }}
       NEXT_PUBLIC_BASE_URL: ${{ secrets.NEXT_PUBLIC_BASE_URL }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       API_KEY_SECRET: ${{ secrets.API_KEY_SECRET }}
@@ -72,15 +81,31 @@ jobs:
 
           INSTANCE_NAME="${TS_NODE_NAME}"
           INSTANCE_ADDR="$(bash ./scripts/resolve-instance-addr.sh)"
-          CONSUL_HTTP_ADDR="http://consul:8500"
+          CONSUL_MODE="${{ github.event.inputs.consul_mode }}"
+
+          if [ "$CONSUL_MODE" = "external" ]; then
+            if [ -z "${CONSUL_HTTP_ADDR_SECRET:-}" ]; then
+              echo "CONSUL_HTTP_ADDR secret is required when consul_mode=external"
+              exit 1
+            fi
+            CONSUL_HTTP_ADDR="${CONSUL_HTTP_ADDR_SECRET}"
+            CONSUL_CHECK_ADDR="${CONSUL_HTTP_ADDR_SECRET}"
+          else
+            CONSUL_HTTP_ADDR="http://consul:8500"
+            CONSUL_CHECK_ADDR="http://127.0.0.1:8500"
+          fi
 
           echo "INSTANCE_NAME=${INSTANCE_NAME}" >> "$GITHUB_ENV"
           echo "INSTANCE_ADDR=${INSTANCE_ADDR}" >> "$GITHUB_ENV"
           echo "CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}" >> "$GITHUB_ENV"
+          echo "CONSUL_CHECK_ADDR=${CONSUL_CHECK_ADDR}" >> "$GITHUB_ENV"
+          echo "CONSUL_MODE=${CONSUL_MODE}" >> "$GITHUB_ENV"
 
+          echo "Resolved CONSUL_MODE=${CONSUL_MODE}"
           echo "Resolved INSTANCE_NAME=${INSTANCE_NAME}"
           echo "Resolved INSTANCE_ADDR=${INSTANCE_ADDR}"
           echo "Resolved CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}"
+          echo "Resolved CONSUL_CHECK_ADDR=${CONSUL_CHECK_ADDR}"
 
       # - name: Create .env for compose
       #   run: |
@@ -103,23 +128,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          docker compose up -d consul
+          if [ "${CONSUL_MODE}" = "local" ]; then
+            docker compose up -d consul
+          fi
 
-          for i in $(seq 1 24); do
-            leader="$(curl -fsS --max-time 5 http://127.0.0.1:8500/v1/status/leader 2>/dev/null || true)"
-            if [ -n "$leader" ] && [ "$leader" != '""' ]; then
-              echo "Consul leader is ready: $leader"
-              break
-            fi
-            if [ "$i" -eq 24 ]; then
-              echo "Consul leader timeout"
-              docker compose ps
-              docker compose logs consul --tail 200
-              exit 1
-            fi
-            echo "waiting consul leader... (${i}/24)"
-            sleep 5
-          done
+          CONSUL_CHECK_ADDR="$(CONSUL_HTTP_ADDR="${CONSUL_CHECK_ADDR}" bash ./scripts/resolve-consul-addr.sh)"
+          echo "Consul leader endpoint is reachable via ${CONSUL_CHECK_ADDR}"
 
           docker compose up -d --build omniroute-litefs
 

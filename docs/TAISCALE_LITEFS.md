@@ -107,5 +107,7 @@ LiteFS đọc `INSTANCE_ADDR` qua env và đưa vào `lease.advertise-url`.
 Luồng chuẩn của repo không còn dùng `CONSUL_CANDIDATES`.
 
 - App container mặc định gọi Consul qua `http://consul:8500`.
-- Workflow sẽ start local `consul` trước, chờ có leader, rồi mới start `omniroute-litefs`.
-- Nếu bạn có một cụm Consul auto-join bên ngoài repo, hãy set trực tiếp `CONSUL_HTTP_ADDR` về endpoint ổn định đó. Repo hiện chưa tự dựng cấu hình auto-join cross-host cho Consul.
+- Workflow có 2 mode:
+- `consul_mode=local`: start local `consul` trước, phù hợp smoke test một node.
+- `consul_mode=external`: không start local `consul`; mọi node phải dùng cùng `CONSUL_HTTP_ADDR`.
+- Multi-host thật nên dùng `consul_mode=external`.

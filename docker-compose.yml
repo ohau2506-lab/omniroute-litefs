@@ -12,8 +12,6 @@ services:
       context: .
       dockerfile: litefs/Dockerfile
     container_name: omniroute-litefs
-    depends_on:
-      - consul
     cap_add:
       - SYS_ADMIN
     devices:

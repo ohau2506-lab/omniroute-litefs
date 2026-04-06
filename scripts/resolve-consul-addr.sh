@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Resolve CONSUL_HTTP_ADDR for the local compose topology used by this repo.
+# Resolve a reachable Consul HTTP endpoint from the current shell context.
 # Priority:
 # 1) CONSUL_HTTP_ADDR if healthy
 # 2) local docker-compose service
 # 3) localhost fallback
+#
+# Note:
+# - For app containers in local compose mode, keep CONSUL_HTTP_ADDR=http://consul:8500.
+# - This script may return localhost-style URLs when run on the host machine.
 
 normalize_url() {
   local raw="$1"
