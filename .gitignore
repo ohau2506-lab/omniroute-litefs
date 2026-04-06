@@ -95,26 +95,3 @@ coverage/
 # ── Git O-Alias helpers ───────────────────────
 .git-o-config
 .opushforce.message
-
-# ── Node.js ──────────────────────────────────────────
-
-# Build output (Node)
-
-# Runtime / temp
-
-# ── .NET / C# ────────────────────────────────────────
-
-# NuGet
-
-# Visual Studio / Rider
-
-# Test results
-
-# Publish profiles
-
-# ── Shared ────────────────────────────────────────────
-# Env & secrets
-
-# Editor
-
-# OS
