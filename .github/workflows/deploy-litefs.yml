@@ -52,6 +52,7 @@ jobs:
             --authkey="${TS_AUTHKEY}" \
             --hostname="${TS_NODE_NAME}" \
             --accept-dns=true \
+            --advertise-tags=-tag:ci \
             --reset
 
           tailscale status
