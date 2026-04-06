@@ -35,6 +35,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ================================================================
+      #  STEP 1 — Pull .env & credentials từ RTDB
+      #  Chạy TRƯỚC detect-OS để không bị ghi đè
+      # ================================================================
+      - name: Pull .env & credentials from RTDB
+        shell: bash
+        run: bash .github/scripts/pull-env.sh
+
       - name: Install Tailscale
         run: |
           curl -fsSL https://tailscale.com/install.sh | sh
@@ -68,22 +76,22 @@ jobs:
           echo "Resolved INSTANCE_ADDR=${INSTANCE_ADDR}"
           echo "Resolved CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}"
 
-      - name: Create .env for compose
-        run: |
-          cp .env.example .env
+      # - name: Create .env for compose
+      #   run: |
+      #     cp .env.example .env
 
-          cat >> .env <<EOF
-          NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
-          INSTANCE_NAME=${TS_NODE_NAME}
-          INSTANCE_ADDR=${INSTANCE_ADDR}
-          CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}
-          CONSUL_CANDIDATES=${CONSUL_CANDIDATES}
-          JWT_SECRET=${JWT_SECRET}
-          API_KEY_SECRET=${API_KEY_SECRET}
-          MACHINE_ID_SALT=${MACHINE_ID_SALT}
-          STORAGE_ENCRYPTION_KEY=${STORAGE_ENCRYPTION_KEY}
-          INITIAL_PASSWORD=${INITIAL_PASSWORD}
-          EOF
+      #     cat >> .env <<EOF
+      #     NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+      #     INSTANCE_NAME=${TS_NODE_NAME}
+      #     INSTANCE_ADDR=${INSTANCE_ADDR}
+      #     CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}
+      #     CONSUL_CANDIDATES=${CONSUL_CANDIDATES}
+      #     JWT_SECRET=${JWT_SECRET}
+      #     API_KEY_SECRET=${API_KEY_SECRET}
+      #     MACHINE_ID_SALT=${MACHINE_ID_SALT}
+      #     STORAGE_ENCRYPTION_KEY=${STORAGE_ENCRYPTION_KEY}
+      #     INITIAL_PASSWORD=${INITIAL_PASSWORD}
+      #     EOF
 
       - name: Boot consul + app
         run: |
