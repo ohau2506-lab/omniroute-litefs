@@ -15,7 +15,8 @@ on:
         options:
           - "true"
           - "false"
-
+env:
+  RTDB_URL: ${{ secrets.RTDB_URL }}
 jobs:
   deploy:
     runs-on: ubuntu-latest
