@@ -71,6 +71,33 @@ jobs:
           chmod +x ./scripts/resolve-instance-addr.sh
           chmod +x ./scripts/resolve-consul-addr.sh
 
+      - name: Debug Consul connectivity
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          echo "TS_NODE_NAME=$TS_NODE_NAME"
+          echo "TAILSCALE_TAILNET=$TAILSCALE_TAILNET"
+          echo "CONSUL_CANDIDATES=$CONSUL_CANDIDATES"
+
+          IFS=',' read -r -a arr <<< "$CONSUL_CANDIDATES"
+          for item in "${arr[@]}"; do
+            item="$(echo "$item" | xargs)"
+            [ -z "$item" ] && continue
+
+            if [[ "$item" =~ ^https?:// ]]; then
+              url="$item"
+            elif [[ "$item" == *:* ]]; then
+              url="http://$item"
+            else
+              url="http://$item:8500"
+            fi
+
+            echo "Testing: $url"
+            curl -v --max-time 5 "$url/v1/status/leader" || true
+            echo
+          done
+
       - name: Resolve INSTANCE_ADDR and CONSUL_HTTP_ADDR
         shell: bash
         run: |
