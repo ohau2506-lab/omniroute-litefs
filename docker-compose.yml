@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  consul:
+    image: hashicorp/consul:1.19
+    container_name: consul
+    command: agent -server -bootstrap-expect=1 -ui -client=0.0.0.0
+    ports:
+      - "8500:8500"
+    restart: unless-stopped
+
+  omniroute-litefs:
+    build:
+      context: .
+      dockerfile: litefs/Dockerfile
+    container_name: omniroute-litefs
+    depends_on:
+      - consul
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse:/dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    env_file: .env
+    environment:
+      DATA_DIR: /litefs
+      PORT: 20129
+      INSTANCE_NAME: ${INSTANCE_NAME}
+      INSTANCE_ADDR: ${INSTANCE_ADDR}
+      CONSUL_HTTP_ADDR: ${CONSUL_HTTP_ADDR:-http://consul:8500}
+      NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+    volumes:
+      - ./data-litefs:/var/lib/litefs
+    ports:
+      - "20128:20128"
+      - "20202:20202"
+      - "20129:20129"
+    healthcheck:
+      test: ["CMD", "/healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - ./cloudflared-credentials.json:/etc/cloudflared/credentials.json:ro
+    depends_on:
+      - omniroute-litefs
+    restart: unless-stopped
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: filebrowser
+    command: --noauth --port 80 --root /srv --database /database/filebrowser.db
+    volumes:
+      - .:/srv
+    restart: unless-stopped
