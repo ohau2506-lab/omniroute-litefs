@@ -102,22 +102,10 @@ LiteFS đọc `INSTANCE_ADDR` qua env và đưa vào `lease.advertise-url`.
 
 ---
 
-## Consul không có IP cố định: tự xoay vòng được không?
+## Consul trong repo này chạy thế nào?
 
-**Có.** Dùng nhiều endpoint trong `CONSUL_CANDIDATES` và resolve endpoint còn sống trước khi chạy compose.
+Luồng chuẩn của repo không còn dùng `CONSUL_CANDIDATES`.
 
-Ví dụ:
-
-```bash
-export CONSUL_CANDIDATES="consul-a.tailnet.ts.net,consul-b.tailnet.ts.net,consul-c.tailnet.ts.net"
-export CONSUL_HTTP_ADDR=$(./scripts/resolve-consul-addr.sh)
-```
-
-Script `scripts/resolve-consul-addr.sh` sẽ:
-
-1. Thử `CONSUL_HTTP_ADDR` (nếu có).
-2. Nếu fail thì duyệt từng endpoint trong `CONSUL_CANDIDATES`.
-3. Endpoint nào trả về leader hợp lệ từ `/v1/status/leader` sẽ được chọn.
-
-Điều này phù hợp môi trường GitHub Actions/Tailscale khi node đổi IP liên tục nhưng vẫn có DNS reachability.
-
+- App container mặc định gọi Consul qua `http://consul:8500`.
+- Workflow sẽ start local `consul` trước, chờ có leader, rồi mới start `omniroute-litefs`.
+- Nếu bạn có một cụm Consul auto-join bên ngoài repo, hãy set trực tiếp `CONSUL_HTTP_ADDR` về endpoint ổn định đó. Repo hiện chưa tự dựng cấu hình auto-join cross-host cho Consul.

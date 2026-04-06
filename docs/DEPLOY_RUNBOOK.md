@@ -26,7 +26,6 @@ Secrets tối thiểu cần set:
 
 - `TS_AUTHKEY`
 - `TS_TAILNET`
-- `CONSUL_CANDIDATES`
 - `NEXT_PUBLIC_BASE_URL`
 - `JWT_SECRET`
 - `API_KEY_SECRET`
@@ -51,7 +50,7 @@ Nếu bạn muốn chạy nội bộ/VPN trước, có thể **không bật clou
 Cần cấu hình:
 
 1. `.env` đầy đủ secrets app + identity (`INSTANCE_NAME`, `INSTANCE_ADDR`).
-2. `CONSUL_HTTP_ADDR` (hoặc `CONSUL_CANDIDATES` + resolver).
+2. `CONSUL_HTTP_ADDR` nếu bạn muốn override; mặc định repo dùng `http://consul:8500`.
 3. Mở cổng truy cập nội bộ tới LiteFS proxy (`20128`) trên host chạy app.
 4. Dùng URL nội bộ để test, ví dụ:
    - `http://<node-or-lb-internal>:20128/api/storage/health`
@@ -91,16 +90,16 @@ Nếu node IP động:
 
 ```bash
 export INSTANCE_ADDR="$(bash ./scripts/resolve-instance-addr.sh)"
-export CONSUL_HTTP_ADDR="$(bash ./scripts/resolve-consul-addr.sh)"
+export CONSUL_HTTP_ADDR="http://consul:8500"
 ```
 
 ### PASS
 - `.env` tồn tại và có đủ secret bắt buộc.
 - `INSTANCE_ADDR` resolve được.
-- `CONSUL_HTTP_ADDR` resolve ra endpoint Consul đang có leader.
+- `CONSUL_HTTP_ADDR` trỏ tới Consul local đang có leader.
 
 ### FAIL
-- Script resolve báo lỗi không tìm thấy DNS/Consul khỏe.
+- Consul local chưa lên hoặc chưa có leader.
 
 ---
 

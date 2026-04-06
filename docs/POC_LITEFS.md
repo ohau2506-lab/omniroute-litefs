@@ -50,7 +50,7 @@ Cloudflare Tunnel
 - `scripts/litefs-smoke.sh`: smoke test nhanh.
 - `scripts/litefs-soak.sh`: soak test dài.
 - `scripts/resolve-instance-addr.sh`: resolve `INSTANCE_ADDR` khi dùng Tailscale/IP động.
-- `scripts/resolve-consul-addr.sh`: tự chọn `CONSUL_HTTP_ADDR` từ danh sách endpoint Consul động.
+- `scripts/resolve-consul-addr.sh`: helper kiểm tra `CONSUL_HTTP_ADDR`/Consul local trước khi app lấy lease.
 
 ---
 
@@ -87,7 +87,7 @@ Thiết lập nhanh:
 
 ```bash
 export INSTANCE_ADDR="$(bash ./scripts/resolve-instance-addr.sh)"
-export CONSUL_HTTP_ADDR="$(bash ./scripts/resolve-consul-addr.sh)"
+export CONSUL_HTTP_ADDR="http://consul:8500"
 ```
 
 Xem hướng dẫn chi tiết tại `docs/TAISCALE_LITEFS.md`.
@@ -121,7 +121,7 @@ bash ./scripts/migrate-from-litestream.sh ./data/storage.sqlite ./bootstrap/stor
 
 ## 3.4 Join node thứ 2
 
-- Trên node 2, dùng cùng `CONSUL_HTTP_ADDR`.
+- Trên node 2, giữ cùng cách trỏ Consul; mặc định là `CONSUL_HTTP_ADDR=http://consul:8500` nếu app dùng local compose service.
 - Set khác `INSTANCE_NAME`, `INSTANCE_ADDR`.
 - Start `omniroute-litefs` như node 1.
 

@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Resolve CONSUL_HTTP_ADDR when consul endpoints are dynamic (e.g. tailscale).
+# Resolve CONSUL_HTTP_ADDR for the local compose topology used by this repo.
 # Priority:
 # 1) CONSUL_HTTP_ADDR if healthy
-# 2) first healthy candidate from CONSUL_CANDIDATES (comma-separated)
-#
-# Candidate format examples:
-#   consul-a.tailnet.ts.net
-#   consul-b.tailnet.ts.net:8500
-#   http://consul-c.tailnet.ts.net:8500
+# 2) local docker-compose service
+# 3) localhost fallback
 
 normalize_url() {
   local raw="$1"
@@ -41,18 +37,12 @@ if [ -n "${CONSUL_HTTP_ADDR:-}" ]; then
   fi
 fi
 
-if [ -n "${CONSUL_CANDIDATES:-}" ]; then
-  IFS=',' read -r -a arr <<< "$CONSUL_CANDIDATES"
-  for item in "${arr[@]}"; do
-    item="$(echo "$item" | xargs)"
-    [ -z "$item" ] && continue
-    C_URL="$(normalize_url "$item")"
-    if is_consul_healthy "$C_URL"; then
-      echo "$C_URL"
-      exit 0
-    fi
-  done
-fi
+for default_consul in "http://consul:8500" "http://127.0.0.1:8500" "http://localhost:8500"; do
+  if is_consul_healthy "$default_consul"; then
+    echo "$default_consul"
+    exit 0
+  fi
+done
 
-echo "Unable to resolve healthy CONSUL_HTTP_ADDR. Set CONSUL_HTTP_ADDR or CONSUL_CANDIDATES." >&2
+echo "Unable to resolve healthy CONSUL_HTTP_ADDR. Start docker compose consul or set CONSUL_HTTP_ADDR explicitly." >&2
 exit 1

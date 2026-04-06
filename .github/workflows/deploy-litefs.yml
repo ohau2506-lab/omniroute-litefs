@@ -24,7 +24,6 @@ jobs:
     env:
       TS_NODE_NAME: omniroute-node-${{ github.event.inputs.node_slot }}
       TAILSCALE_TAILNET: ${{ secrets.TS_TAILNET }}
-      CONSUL_CANDIDATES: ${{ secrets.CONSUL_CANDIDATES }}
       NEXT_PUBLIC_BASE_URL: ${{ secrets.NEXT_PUBLIC_BASE_URL }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       API_KEY_SECRET: ${{ secrets.API_KEY_SECRET }}
@@ -66,46 +65,14 @@ jobs:
 
           tailscale status
 
-      - name: Make scripts executable
-        run: |
-          chmod +x ./scripts/resolve-instance-addr.sh
-          chmod +x ./scripts/resolve-consul-addr.sh
-
-      - name: Debug Consul connectivity
+      - name: Resolve INSTANCE_ADDR
         shell: bash
         run: |
-          set -euxo pipefail
-
-          echo "TS_NODE_NAME=$TS_NODE_NAME"
-          echo "TAILSCALE_TAILNET=$TAILSCALE_TAILNET"
-          echo "CONSUL_CANDIDATES=$CONSUL_CANDIDATES"
-
-          IFS=',' read -r -a arr <<< "$CONSUL_CANDIDATES"
-          for item in "${arr[@]}"; do
-            item="$(echo "$item" | xargs)"
-            [ -z "$item" ] && continue
-
-            if [[ "$item" =~ ^https?:// ]]; then
-              url="$item"
-            elif [[ "$item" == *:* ]]; then
-              url="http://$item"
-            else
-              url="http://$item:8500"
-            fi
-
-            echo "Testing: $url"
-            curl -v --max-time 5 "$url/v1/status/leader" || true
-            echo
-          done
-
-      - name: Resolve INSTANCE_ADDR and CONSUL_HTTP_ADDR
-        shell: bash
-        run: |
-          set -euo pipefail          
+          set -euo pipefail
 
           INSTANCE_NAME="${TS_NODE_NAME}"
           INSTANCE_ADDR="$(bash ./scripts/resolve-instance-addr.sh)"
-          CONSUL_HTTP_ADDR="$(bash ./scripts/resolve-consul-addr.sh)"
+          CONSUL_HTTP_ADDR="http://consul:8500"
 
           echo "INSTANCE_NAME=${INSTANCE_NAME}" >> "$GITHUB_ENV"
           echo "INSTANCE_ADDR=${INSTANCE_ADDR}" >> "$GITHUB_ENV"
@@ -123,8 +90,7 @@ jobs:
       #     NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
       #     INSTANCE_NAME=${TS_NODE_NAME}
       #     INSTANCE_ADDR=${INSTANCE_ADDR}
-      #     CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}
-      #     CONSUL_CANDIDATES=${CONSUL_CANDIDATES}
+      #     CONSUL_HTTP_ADDR=http://consul:8500
       #     JWT_SECRET=${JWT_SECRET}
       #     API_KEY_SECRET=${API_KEY_SECRET}
       #     MACHINE_ID_SALT=${MACHINE_ID_SALT}
@@ -133,8 +99,28 @@ jobs:
       #     EOF
 
       - name: Boot consul + app
+        shell: bash
         run: |
+          set -euo pipefail
+
           docker compose up -d consul
+
+          for i in $(seq 1 24); do
+            leader="$(curl -fsS --max-time 5 http://127.0.0.1:8500/v1/status/leader 2>/dev/null || true)"
+            if [ -n "$leader" ] && [ "$leader" != '""' ]; then
+              echo "Consul leader is ready: $leader"
+              break
+            fi
+            if [ "$i" -eq 24 ]; then
+              echo "Consul leader timeout"
+              docker compose ps
+              docker compose logs consul --tail 200
+              exit 1
+            fi
+            echo "waiting consul leader... (${i}/24)"
+            sleep 5
+          done
+
           docker compose up -d --build omniroute-litefs
 
       - name: Wait for health
