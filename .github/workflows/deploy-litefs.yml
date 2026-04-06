@@ -66,14 +66,25 @@ jobs:
 
           tailscale status
 
-      - name: Resolve INSTANCE_ADDR and CONSUL_HTTP_ADDR
+      - name: Make scripts executable
         run: |
-          export INSTANCE_ADDR=$(./scripts/resolve-instance-addr.sh)
-          export CONSUL_HTTP_ADDR=$(./scripts/resolve-consul-addr.sh)
+          chmod +x ./scripts/resolve-instance-addr.sh
+          chmod +x ./scripts/resolve-consul-addr.sh
 
+      - name: Resolve INSTANCE_ADDR and CONSUL_HTTP_ADDR
+        shell: bash
+        run: |
+          set -euo pipefail          
+
+          INSTANCE_NAME="${TS_NODE_NAME}"
+          INSTANCE_ADDR="$(bash ./scripts/resolve-instance-addr.sh)"
+          CONSUL_HTTP_ADDR="$(bash ./scripts/resolve-consul-addr.sh)"
+
+          echo "INSTANCE_NAME=${INSTANCE_NAME}" >> "$GITHUB_ENV"
           echo "INSTANCE_ADDR=${INSTANCE_ADDR}" >> "$GITHUB_ENV"
           echo "CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}" >> "$GITHUB_ENV"
 
+          echo "Resolved INSTANCE_NAME=${INSTANCE_NAME}"
           echo "Resolved INSTANCE_ADDR=${INSTANCE_ADDR}"
           echo "Resolved CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}"
 
@@ -100,9 +111,20 @@ jobs:
           docker compose up -d --build omniroute-litefs
 
       - name: Wait for health
+        shell: bash
         run: |
+          set -euo pipefail
+
+          check_health() {
+            local base_url="${1:-http://localhost:20128}"
+            if curl -fsS --max-time 5 "${base_url}/healthz" >/dev/null 2>&1; then
+              return 0
+            fi
+            curl -fsS --max-time 5 "${base_url}/api/storage/health" >/dev/null 2>&1
+          }
+
           for i in $(seq 1 24); do
-            if curl -fsS http://localhost:20128/api/storage/health >/dev/null; then
+            if check_health "http://localhost:20128"; then
               echo "health OK"
               exit 0
             fi
@@ -115,8 +137,9 @@ jobs:
           exit 1
 
       - name: Smoke test
+        shell: bash
         run: |
-          ./scripts/litefs-smoke.sh http://localhost:20128
+          bash ./scripts/litefs-smoke.sh http://localhost:20128
 
       - name: Enable cloudflared
         if: ${{ github.event.inputs.skip_cloudflared == 'false' }}

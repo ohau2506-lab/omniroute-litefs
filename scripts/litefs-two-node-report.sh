@@ -39,18 +39,26 @@ check_ok() {
   return 1
 }
 
+check_health_ok() {
+  local base_url="$1"
+  if check_ok "$base_url/healthz"; then
+    return 0
+  fi
+  check_ok "$base_url/api/storage/health"
+}
+
 END_TS=$(( $(date +%s) + DURATION_SECONDS ))
 
 while [ "$(date +%s)" -lt "$END_TS" ]; do
   TOTAL=$((TOTAL + 1))
 
-  if check_ok "$NODE1_APP/api/storage/health"; then
+  if check_health_ok "$NODE1_APP"; then
     N1_HEALTH_OK=$((N1_HEALTH_OK + 1))
   else
     FAIL_EVENTS=$((FAIL_EVENTS + 1))
   fi
 
-  if check_ok "$NODE2_APP/api/storage/health"; then
+  if check_health_ok "$NODE2_APP"; then
     N2_HEALTH_OK=$((N2_HEALTH_OK + 1))
   else
     FAIL_EVENTS=$((FAIL_EVENTS + 1))
@@ -106,7 +114,7 @@ cat > "$REPORT_PATH" <<MD
 
 | Check | Node 1 | Node 2 |
 |---|---:|---:|
-| /api/storage/health (OK/Total) | $N1_HEALTH_OK/$TOTAL ($N1_HEALTH_PCT%) | $N2_HEALTH_OK/$TOTAL ($N2_HEALTH_PCT%) |
+| /healthz or /api/storage/health (OK/Total) | $N1_HEALTH_OK/$TOTAL ($N1_HEALTH_PCT%) | $N2_HEALTH_OK/$TOTAL ($N2_HEALTH_PCT%) |
 | /v1/models (OK/Total) | $N1_MODELS_OK/$TOTAL ($N1_MODELS_PCT%) | $N2_MODELS_OK/$TOTAL ($N2_MODELS_PCT%) |
 
 ## Diễn giải

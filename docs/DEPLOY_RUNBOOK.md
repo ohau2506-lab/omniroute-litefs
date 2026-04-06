@@ -90,8 +90,8 @@ cp .env.example .env
 Nếu node IP động:
 
 ```bash
-export INSTANCE_ADDR=$(./scripts/resolve-instance-addr.sh)
-export CONSUL_HTTP_ADDR=$(./scripts/resolve-consul-addr.sh)
+export INSTANCE_ADDR="$(bash ./scripts/resolve-instance-addr.sh)"
+export CONSUL_HTTP_ADDR="$(bash ./scripts/resolve-consul-addr.sh)"
 ```
 
 ### PASS
@@ -163,7 +163,7 @@ docker compose ps omniroute-litefs
 ## 2.3 Verify app path/proxy đúng luồng
 
 ```bash
-curl -fsS http://localhost:20128/api/storage/health
+bash ./scripts/litefs-smoke.sh http://localhost:20128
 curl -fsS http://localhost:20128/v1/models >/dev/null
 ```
 
@@ -184,7 +184,7 @@ Dừng ghi app cũ, lấy file `storage.sqlite` chuẩn.
 ## 3.2 Chạy migration + integrity check
 
 ```bash
-./scripts/migrate-from-litestream.sh ./data/storage.sqlite ./bootstrap/storage.sqlite
+bash ./scripts/migrate-from-litestream.sh ./data/storage.sqlite ./bootstrap/storage.sqlite
 ```
 
 ### PASS
@@ -206,7 +206,7 @@ Trên node 2:
 Kiểm tra từ node 2:
 
 ```bash
-curl -fsS http://localhost:20128/api/storage/health
+bash ./scripts/litefs-smoke.sh http://localhost:20128
 curl -fsS http://localhost:20128/v1/models >/dev/null
 ```
 
@@ -222,7 +222,7 @@ curl -fsS http://localhost:20128/v1/models >/dev/null
 ## 5) Kiểm thử song song 2 node + report
 
 ```bash
-./scripts/litefs-two-node-report.sh \
+bash ./scripts/litefs-two-node-report.sh \
   http://node1.internal:20128 \
   http://node2.internal:20128 \
   600 \
@@ -262,13 +262,13 @@ Kiểm tra:
 Smoke:
 
 ```bash
-./scripts/litefs-smoke.sh http://localhost:20128
+bash ./scripts/litefs-smoke.sh http://localhost:20128
 ```
 
 Soak 2 giờ (ví dụ):
 
 ```bash
-./scripts/litefs-soak.sh http://localhost:20128 7200 2
+bash ./scripts/litefs-soak.sh http://localhost:20128 7200 2
 ```
 
 ### PASS
@@ -316,4 +316,3 @@ docker compose build --build-arg LITEFS_VERSION=0.5.13 omniroute-litefs
 Nếu bỏ pin, Dockerfile sẽ lấy release mới nhất.
 
 ---
-
